@@ -1,0 +1,69 @@
+#!/bin/bash
+# {{ansible_managed}}
+# /usr/local/bin/dbstop
+
+runner=$(whoami)
+if [ "${runner}" != "oracle" ]; then
+  echo "must run as the oracle user"
+  exit 1
+fi
+
+cd ${ORACLE_HOME}
+
+INST=${1}
+PMON="ora_pmon_${INST}"
+SQLDBA="${ORACLE_HOME}/bin/sqlplus /nolog"
+
+if [ -z ${INST} ]; then
+  echo "must supply instance (SID) as first parameter"
+  exit 1
+fi
+
+ORATAB=/etc/oratab
+if [ ! -e ${ORATAB} ]; then
+  echo "${ORATAB} not found"
+  exit 1
+fi
+
+# Process oratab to see if the supplied instance should even be stopped
+# and setup some environment if so
+while read LINE
+do
+  case ${LINE} in
+    \#*) ;;
+    *)
+      ORACLE_SID=$(echo ${LINE} | awk -F: '{print $1}')
+      if [ "${ORACLE_SID}" != "${INST}" ]; then continue; fi
+      IS_Y=$(echo ${LINE} | awk -F: '{print $NF}')
+      if [ "${IS_Y}" != "Y" ]; then
+        echo "oratab indicates to skip, not stopping"
+        exit 1
+      fi
+      ORACLE_HOME=$(echo ${LINE} | awk -F: '{print $2}')
+      PATH=${ORACLE_HOME}/bin:/bin:/usr/bin:/etc:${PATH}
+      LD_LIBRARY_PATH=${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}
+      export ORACLE_HOME
+      export ORACLE_SID
+      export PATH
+      export LD_LIBRARY_PATH
+      break
+      ;;
+  esac
+done < ${ORATAB}
+
+PIDFILE=db_${ORACLE_SID}.pid
+if [ -f ${PIDFILE} ]; then
+  curPid=$(cat ${PIDFILE})
+  ps -p ${curPid} > /dev/null
+  if [ $? -eq 0 ]; then
+    dbPid=$(ps uax | grep ${PMON} | grep -v -m 1 grep | awk '{print $2}')
+    if [ "${curPid}" == "${dbPid}" ]; then
+      echo -e "connect / as sysdba\nshutdown immediate\nquit" | ${SQLDBA}
+      if [ $? -ne 0 ]; then
+        echo "shutdown failed, exiting"
+        exit 1
+      fi
+    fi
+  fi
+  rm -f ${PIDFILE}
+fi

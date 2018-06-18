@@ -1,0 +1,25 @@
+# {{ansible_managed}}
+# /etc/systemd/system/oracle-listener.service
+[Unit]
+Description=Oracle Database Listener
+After=syslog.target network.target
+
+[Service]
+LimitMEMLOCK=infinity
+LimitNOFILE={{snofile}}:{{hnofile}}
+LimitNPROC={{snproc}}:{{hnproc}}
+LimitSTACK={{sstack}}K:{{hstack}}K
+
+Type=forking
+PIDFile={{oracle_home}}/lsnr.pid
+User=oracle
+Group=oinstall
+Environment="ORACLE_HOME={{oracle_home}}"
+Environment="ORACLE_BASE=/opt/oracle"
+Environment="LD_LIBRARY_PATH={{oracle_home}}/ctx/lib:{{oracle_home}}/lib"
+ExecStart=/usr/local/bin/lsnrstart
+ExecStop=/usr/local/bin/lsnrstop
+TimeoutStartSec=30
+TimeoutStopSec=60
+Restart=always
+RestartSec=10

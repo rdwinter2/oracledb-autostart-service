@@ -1,0 +1,22 @@
+#!/bin/bash
+# {{ansible_managed}}
+# /usr/bin/local/lsnrstop
+
+runner=$(whoami)
+if [ "${runner}" != "oracle" ]; then
+  echo "must run as the oracle user"
+  exit 1
+fi
+
+cd ${ORACLE_HOME}
+if [ -f lsnr.pid ]; then
+  curPid=$(cat lsnr.pid)
+  ps -p ${curPid} > /dev/null
+  if [ $? -eq 0 ]; then
+    lsnrPid=$(ps uax | grep tnslsnr | grep -v -m 1 grep | awk '{print $2}')
+    if [ "${curPid}" == "${lsnrPid}" ]; then
+      ./bin/lsnrctl stop
+    fi
+  fi
+  rm -rf lsnr.pid
+fi

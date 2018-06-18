@@ -1,0 +1,36 @@
+#!/bin/bash
+# {{ansible_managed}}
+# /usr/local/bin/lsnrstart
+
+runner=$(whoami)
+if [ "${runner}" != "oracle" ]; then
+  echo "must run as the oracle user"
+  exit 1
+fi
+
+cd ${ORACLE_HOME}
+
+if [ -f lsnr.pid ]; then
+  curPid=$(cat lsnr.pid)
+  pidIsPresent=$(ps -p ${curPid})
+  if [ ${pidIsPresent} -eq 0 ]; then
+    lsnrPid=$(ps uax | grep tnslsnr | grep -v -m 1 grep | awk '{print $2}')
+    if [ "${curPid}" == "${lsnrPid}" ]; then
+      echo "already running"
+      exit 0
+    fi
+  fi
+  # must be from an old process
+  rm -f lsnr.pid
+fi
+
+./bin/lsnrctl start
+exitCode=$?
+
+if [ ${exitCode} -eq 0 ]; then
+  lsnrPid=$(ps uax | grep tnslsnr | grep -v -m 1 grep | awk '{print $2}')
+  echo ${lsnrPid} > lsnr.pid
+  exit 0
+else
+  exit ${exitCode}
+fi

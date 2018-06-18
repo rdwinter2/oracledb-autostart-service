@@ -1,0 +1,34 @@
+# {{ansible_managed}}
+# /etc/systemd/system/oracle@.service
+[Unit]
+Description=Oracle Database instance %I
+BindTo=oracle.service
+After=oracle.service
+
+[Install]
+WantedBy=oracle.service
+
+[Service]
+LimitMEMLOCK=infinity
+LimitNOFILE={{snofile}}:{{hnofile}}
+LimitNPROC={{snproc}}:{{hnproc}}
+LimitSTACK={{sstack}}K:{{hstack}}K
+
+Type=forking
+PIDFile={{oracle_home}}/db_%I.pid
+User=oracle
+Group=oinstall
+Environment="ORACLE_HOME={{oracle_home}}"
+Environment="ORACLE_BASE=/opt/oracle"
+ExecStart=/usr/local/bin/dbstart %I
+ExecStop=/usr/local/bin/dbstop %I
+TimeoutStartSec=30
+TimeoutStopSec=60
+# Despite the following, disabled SIDs will continually try to restart.
+# I suspect it's because shitstemd is confused by being told a PID file will
+# exist, but no usable such file can be generated since no process will be
+# started. Of course, the documentation makes it sound like this will work.
+Restart=on-failure
+RestartSec=10
+RestartPreventExitStatus=255
+SucessExitStatus=0 255

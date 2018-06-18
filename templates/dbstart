@@ -1,0 +1,104 @@
+#!/bin/bash
+# {{ansible_managed}}
+# /usr/local/bin/dbstart
+
+runner=$(whoami)
+if [ "${runner}" != "oracle" ]; then
+  echo "must run as the oracle user"
+  exit 1
+fi
+
+cd ${ORACLE_HOME}
+
+INST=${1}
+PMON="ora_pmon_${INST}"
+SQLDBA="${ORACLE_HOME}/bin/sqlplus /nolog"
+
+if [ -z ${INST} ]; then
+  echo "must supply instance (SID) as first parameter"
+  exit 1
+fi
+
+ORATAB=/etc/oratab
+if [ ! -e ${ORATAB} ]; then
+  echo "${ORATAB} not found"
+  exit 1
+fi
+
+# Process oratab to see if the supplied instance should even be started
+# and setup some environment if so
+while read LINE
+do
+  case ${LINE} in
+    \#*) ;;
+    *)
+      ORACLE_SID=$(echo ${LINE} | awk -F: '{print $1}')
+      if [ "${ORACLE_SID}" != "${INST}" ]; then continue; fi
+      IS_Y=$(echo ${LINE} | awk -F: '{print $NF}')
+      if [ "${IS_Y}" != "Y" ]; then
+        echo "oratab indicates to skip, not starting"
+        # create the pid file to keep systemd happy
+        touch db_${ORACLE_SID}.pid
+        # exit 255 so that we can use `Restart=on-failure`
+        exit 255
+      fi
+      ORACLE_HOME=$(echo ${LINE} | awk -F: '{print $2}')
+      PATH=${ORACLE_HOME}/bin:/bin:/usr/bin:/etc:${PATH}
+      LD_LIBRARY_PATH=${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}
+      export ORACLE_HOME
+      export ORACLE_SID
+      export PATH
+      export LD_LIBRARY_PATH
+      PFILE="${ORACLE_HOME}/dbs/init${ORACLE_SID}.ora"
+      SPFILE="${ORACLE_HOME}/dbs/spfile${ORACLE_SID}.ora"
+      SPFILE1="${ORACLE_HOME}/dbs/spfile.ora"
+      break
+      ;;
+  esac
+done < ${ORATAB}
+
+if [ -f ${ORACLE_HOME}/dbs/sgadef${ORACLE_SID}.dbf -o -f ${ORACLE_HOME}/dbs/sgadef${ORACLE_SID}.ora ]; then
+  echo -e "connect / as sysdba\nshutdown abort\nquit" | ${SQLDBA}
+  if [ $? -ne 0 ]; then
+    echo "failed to stop previous instance, aborting"
+    exit 1
+  fi
+fi
+
+PIDFILE=db_${ORACLE_SID}.pid
+if [ -f ${PIDFILE} ]; then
+  curPid=$(cat ${PIDFILE})
+  if [ ! -z ${curPid} ]; then
+    pidIsPresent=$(ps -p ${curPid})
+    if [ ${pidIsPresent} -eq 0 ]; then
+      dbPid=$(ps uax | grep ${PMON} | grep -v -m 1 grep | awk '{print $2}')
+      if [ "${curPid}" == "${dbPid}" ]; then
+        echo "already running"
+        exit 0
+      fi
+    fi
+  fi
+  # must be from an old process
+  rm -f ${PIDFILE}
+fi
+
+if [ -e "${PFILE}" -o -e "${SPFILE}" -o -e "${SPFILE1}" ]; then
+  echo -e "connect / as sysdba\nstartup\nquit" | ${SQLDBA}
+  exitCode=$?
+
+  if [ ${exitCode} -eq 0 ]; then
+    dbPid=$(ps uax | grep ${PMON} | grep -v -m 1 grep | awk '{print $2}')
+    if [ -z ${dbPid} ]; then
+      echo "failed to start ${ORACLE_SID}, could not find ${PMON} pid"
+      exit 1
+    fi
+    echo ${dbPid} > ${PIDFILE}
+    exit 0
+  else
+    echo "failed to start ${ORACLE_SID}"
+    exit ${exitCode}
+  fi
+else
+  echo "no init file found for ${ORACLE_SID}, not starting"
+  exit 1
+fi

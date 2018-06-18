@@ -1,0 +1,12 @@
+# {{ansible_managed}}
+# /etc/systemd/system/oracle.service
+[Unit]
+Description=Oracle Database 12c
+After=oracle-listener.service
+
+# This non-service merely exists so that database instances managed
+# via oracle@.service can all be started/stopped at the same time.
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c 'echo "starting oracle database service"'

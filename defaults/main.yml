@@ -1,2 +1,5 @@
 ---
 # defaults file for role_template
+oracle_user: oracle
+oracle_inventory_group: oinstall
+home_directory_prefix: /home

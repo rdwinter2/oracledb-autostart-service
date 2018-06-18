@@ -58,4 +58,4 @@ MIT
 
 ## References
 
-*
+* [Starting Oracle 12c With Systemd](https://jrfom.com/posts/2017/05/05/starting-oracle-12c-with-systemd/)
