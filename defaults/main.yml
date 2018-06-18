@@ -3,3 +3,12 @@
 oracle_user: oracle
 oracle_inventory_group: oinstall
 home_directory_prefix: /home
+oracle_base: /u01/app/oracle
+oracle_version: 12.2.0
+oracle_home: "{{ oracle_base }}/product/{{ oracle_version }}/dbhome_1"
+snofile: 4096
+hnofile: 65536
+snproc: 16384
+hnproc: 16384
+sstack: 10240
+hstack: 32768

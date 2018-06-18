@@ -18,7 +18,7 @@ Type=forking
 PIDFile={{oracle_home}}/db_%I.pid
 User=oracle
 Group=oinstall
-Environment="ORACLE_HOME={{oracle_home}}"
+Environment="ORACLE_HOME={{ oracle_home }}"
 Environment="ORACLE_BASE=/opt/oracle"
 ExecStart=/usr/local/bin/dbstart %I
 ExecStop=/usr/local/bin/dbstop %I
